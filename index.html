@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G-Bot in Action</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+
+        var isSpeaking = false;
+        var inCall = false;
+        var utterance = new SpeechSynthesisUtterance();
+
+        utterance.onend = function() {
+                inCall = false;
+                console.log("speech ended");
+        };
+
+
+        function setVoice(voiceName) {
+        var voices = window.speechSynthesis.getVoices();
+          var voice = voices.find(function(voice) {
+            return voice.name === voiceName;
+          });
+
+          utterance.voice = voice;
+        }
+
+        window.speechSynthesis.onvoiceschanged = function() {
+          setVoice("Google UK English Female");
+        };
+
+        function vplay(info) {
+        console.log(inCall);
+        if(inCall == false) {
+        if(isSpeaking == true ) {
+        inCall=true;
+        utterance.text = info;
+        console.log(utterance.voice);
+        window.speechSynthesis.speak(utterance);
+        }
+        }
+        }
+
+
+
+
+        $(function () {
+            var websocketIP;
+            var websocketPort;
+            $.getJSON("config.json", function(data) {
+                websocketIP = data.websocket_ip;
+                websocketPort = data.websocket_port;
+
+                var wsUri = "ws://" + websocketIP + ":" + websocketPort + "/websocket_server.php";
+                var websocket = new WebSocket(wsUri);
+                var messageBox = $("#message_box");
+
+                websocket.onopen = function (ev) {
+                    messageBox.append("<div class=\"system_msg\">Connected!</div>");
+                    $('#message').prop('disabled', false);
+                    $('#send-btn').prop('disabled', false);
+                }
+
+                websocket.onmessage = function (ev) {
+                    var response = ev.data;
+                    if ($('#message').val() != '') {
+                        messageBox.append("<div class=\"sent_message\">Sent: " + $("<div/>").text($('#message').val()).html() + "</div>");
+                    }
+                    $('#message_box').append("<div class=\"server_response\">Server: " + $("<div/>").text(response).html() + "</div>");
+                        vplay(response);
+                    messageBox.scrollTop(messageBox[0].scrollHeight);
+                }
+                websocket.onerror = function (ev) {
+                    messageBox.append("<div class=\"system_error\">Error Occurred - " + ev.data + "</div>");
+                }
+
+                $('#message').prop('disabled', true);
+                $('#send-btn').prop('disabled', true);
+
+                $('#send-btn').click(function () {
+                    send_message();
+                });
+
+                $('#message').keypress(function (e) {
+                    if (e.keyCode == 13) {
+                        send_message();
+                    }
+                });
+
+                function send_message() {
+                    var message = $('#message').val();
+                    if (message != '') {
+                        messageBox.append("<div class=\"sent_message\">Sent: " + $("<div/>").text(message).html() + "</div>");
+                        messageBox.scrollTop(messageBox[0].scrollHeight);
+                        websocket.send(message);
+                        $('#message').val('');
+                    }
+                }
+            });
+        });
+    </script>
+    <style>
+body {
+    font-family: "Arial", sans-serif;
+    font-size: 16px;
+    margin: 0;
+    padding: 0;
+}
+#message_box {
+    max-height: 70vh;
+    overflow-y: scroll;
+    border: 1px solid #CCC;
+    padding: 10px;
+}
+
+.system_msg {
+    color: #8A8A8A;
+}
+
+.system_error {
+    color: #FF0000;
+}
+
+.message {
+    margin-bottom: 10px;
+}
+
+.sent_message {
+    margin-bottom: 5px;
+    color: red;
+}
+
+.server_response {
+    margin-bottom: 10px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 5px;
+    font-size: 16px;
+}
+
+input[type="button"] {
+    padding: 5px 15px;
+    background: #555;
+    border: none;
+    color: #FFF;
+    font-size: 16px;
+}
+</style>
+</head>
+<body>
+    <h1>G-Bot in Action</h1>
+    <input type="button" id="toggle-speech" value="Toggle Speech On"></button>
+    <div id="message_box"></div>
+    <input type="text" id="message" placeholder="Type a message...">
+    <input type="button" id="send-btn" value="Send">
+</body>
+<script>
+var toggleButton = document.getElementById('toggle-speech');
+toggleButton.addEventListener('click', function() {
+  if (isSpeaking) {
+    isSpeaking = false;
+    toggleButton.value = "Toggle Speech On";
+  } else {
+    isSpeaking = true;
+    toggleButton.value = "Toggle Speech Off";
+  }
+});
+</script>
+</html>
